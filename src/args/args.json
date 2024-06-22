@@ -1,0 +1,12 @@
+{
+    "dataset": "MPIIFaceGaze",
+
+    "data_root_path":"C:\\Users\\dangk\\B4\\shisen\\data\\MPIIFaceGaze\\MPIIFaceGaze",
+    "sample_root_path":"C:\\Users\\dangk\\B4\\shisen\\data\\MPIIGaze\\Evaluation Subset\\sample list for eye image",
+    "data_preprocess_path":"C:\\Users\\dangk\\B4\\shisen\\data\\MPIIFaceGaze\\preprocessed",
+    "gazeMpiilabel_dir": "C:\\Users\\dangk\\B4\\shisen\\data\\MPIIFaceGaze\\preprocessed\\Label",
+    "gazeMpiimage_dir": "C:\\Users\\dangk\\B4\\shisen\\data\\MPIIFaceGaze\\preprocessed\\Image",
+    "batch_size": 4,
+    "epochs_num": 1,
+    "people_num": 1
+}
