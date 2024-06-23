@@ -2,7 +2,7 @@ import os
 import numpy as np
 import cv2
 import csv
-
+import h5py
 import torch
 from torch.utils.data.dataset import Dataset
 from torchvision import transforms
@@ -15,10 +15,12 @@ class Mpiigaze(Dataset):
         self.orig_list_len = 0
         self.lines = []
         self.angle = angle
+        self.landmarks_dict = {}  # Dictionary to store landmarks
         path = pathorg.copy()
-        if train == False:
+        self.hdf5_path = os.path.join(root, "face_lmk.hdf5")
+        if not train:
             self.angle = 90
-        if train == True:
+        if train:
             path.pop(fold)
         else:
             path = path[fold]
@@ -43,7 +45,8 @@ class Mpiigaze(Dataset):
                     label = np.array(gaze2d.split(",")).astype("float")
                     if abs((label[0] * 180 / np.pi)) <= 42 and abs((label[1] * 180 / np.pi)) <= 42:
                         self.lines.append(line)
-
+        
+   
         print("{} items removed from dataset that have an angle > {}".format(self.orig_list_len - len(self.lines), angle))
         
     def __len__(self):
@@ -53,11 +56,7 @@ class Mpiigaze(Dataset):
         line = self.lines[idx]
         line = line.strip().split(" ")
 
-        name = line[3]
         gaze2d = line[7]
-        head2d = line[8]
-        lefteye = line[1]
-        righteye = line[2]
         face = line[0]
 
         label = np.array(gaze2d.split(",")).astype("float")
@@ -65,33 +64,69 @@ class Mpiigaze(Dataset):
 
         pitch = label[0] * 180 / np.pi
         yaw = label[1] * 180 / np.pi
-
-        img = Image.open(os.path.join(self.root, face))
-
-        # fimg = cv2.imread(os.path.join(self.root, face))
-        # fimg = cv2.resize(fimg, (448, 448)) / 255.0
-        # fimg = fimg.transpose(2, 0, 1)
-        # img = torch.from_numpy(fimg).type(torch.FloatTensor)
-
-        landmark_path = os.path.join(self.root, face.replace(".jpg", ".csv")).replace("face", "face_lmk")
-        landmark = self.read_landmarks_from_csv(landmark_path)
-        if self.transform:
-            img = self.transform(img)        
-
-        # Bin values
-        bins = np.array(range(-42, 42, 3))
-        binned_pose = np.digitize([pitch, yaw], bins) - 1
-
-        labels = binned_pose
+        key = face.replace('.jpg', '.csv').replace('/', '_').replace('\\', '_')
+        key = '_lmk_'.join(key.rsplit('_', 1))  # Adjust the key format
+        # Retrieve preprocessed landmarks
+        with h5py.File(self.hdf5_path, 'r') as hdf5_file:
+            landmark = torch.from_numpy(hdf5_file[key][:])
         cont_labels = torch.FloatTensor([pitch, yaw])
 
         return landmark.float(), cont_labels.float()
     
-    def read_landmarks_from_csv(self, csv_path):
-        landmarks = []
-        with open(csv_path, mode='r') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                landmarks.append([float(val) for val in row])
-        landmarks = np.array(landmarks)
-        return torch.from_numpy(landmarks).float()
+class Mpiigaze_nofold(Dataset): 
+    def __init__(self, pathorg, root, transform, angle, train=True):
+        self.transform = transform
+        self.root = root
+        self.orig_list_len = 0
+        self.lines = []
+        self.angle = angle
+        self.landmarks_dict = {}  # Dictionary to store landmarks
+        self.hdf5_path = os.path.join(root, "face_lmk.hdf5")
+        paths = pathorg.copy()
+        if not train:
+            self.angle = 90
+        if isinstance(paths, list):
+            for path in paths:
+                self._load_data_from_file(path)
+        else:
+            self._load_data_from_file(paths)
+
+        print("{} items removed from dataset that have an angle > {}".format(self.orig_list_len - len(self.lines), angle))
+        
+    def _load_data_from_file(self, path):
+        with open(path) as f:
+            lines = f.readlines()
+            lines.pop(0)
+            self.orig_list_len += len(lines)
+            for line in lines:
+                gaze2d = line.strip().split(" ")[7]
+                label = np.array(gaze2d.split(",")).astype("float")
+                if abs((label[0] * 180 / np.pi)) <= self.angle and abs((label[1] * 180 / np.pi)) <= self.angle:
+                    self.lines.append(line)
+        
+    def __len__(self):
+        return len(self.lines)
+  
+    def __getitem__(self, idx):
+        line = self.lines[idx]
+        line = line.strip().split(" ")
+
+        gaze2d = line[7]
+        face = line[0]
+
+        label = np.array(gaze2d.split(",")).astype("float")
+        label = torch.from_numpy(label).type(torch.FloatTensor)
+
+        pitch = label[0] * 180 / np.pi
+        yaw = label[1] * 180 / np.pi
+        key = face.replace('.jpg', '.csv').replace('/', '_').replace('\\', '_')
+        key = '_lmk_'.join(key.rsplit('_', 1))  # Adjust the key format
+        # Retrieve preprocessed landmarks
+        with h5py.File(self.hdf5_path, 'r') as hdf5_file:
+            landmark = torch.from_numpy(hdf5_file[key][:])
+        cont_labels = torch.FloatTensor([pitch, yaw])
+
+        return landmark.float(), cont_labels.float()   
+# Example usage
+# Assuming pathorg and root are defined
+# dataset = Mpiigaze(pathorg, root, transform=None, train=True, angle=30, fold=0)

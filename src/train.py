@@ -1,7 +1,7 @@
 from collections import defaultdict
 import torch
 import json
-from data.datasets import Mpiigaze
+from data.datasets import Mpiigaze, Mpiigaze_nofold
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
@@ -19,50 +19,120 @@ def defaultdict_from_json(jsonDict):
     dd.update(jsonDict)
     return dd
 
+# def train(testlabelpathombined, gazeMpiimage_dir, transformations, batch_size, device, args):
+#     print(device)
+#     # batch size lớn quá sẽ chuyển qua sử dụng cpu
+#     for fold in range(args["people_num"]):
+#         model = GazeModel().cuda(device)
+#         model.train()
+#         criterion = nn.MSELoss().cuda(device)
+#         optimizer = optim.Adam(model.parameters(), lr=0.001)
+        
+#         print('Loading data.')
+#         dataset=Mpiigaze(testlabelpathombined,gazeMpiimage_dir, transformations, True, angle=180, fold=fold)
+#         train_loader_gaze = DataLoader(
+#             dataset=dataset,
+#             batch_size=int(batch_size),
+#             shuffle=True,
+#             num_workers=4,
+#             pin_memory=True)
+#         torch.backends.cudnn.benchmark = True
+        
+#         for epoch in range(args["epochs_num"]):
+#             print('\nEpoch:', epoch)
+#             tbar = tqdm(train_loader_gaze, desc='Training')
+#             for i, (landmarks, cont_labels) in enumerate(tbar):
+#             # for i, (landmarks, cont_labels) in enumerate(train_loader_gaze):
+#                 landmarks = landmarks.cuda(device)
+#                 cont_labels = cont_labels.cuda(device)
+#                 # Forward pass
+#                 output = model(landmarks)
+#                 loss = criterion(output, cont_labels)
+                
+#                 # Backward pass
+#                 optimizer.zero_grad()
+#                 loss.backward()
+#                 optimizer.step()
+                
+#                 if i % 2000 == 0:
+#                     print('\nEpoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(epoch, args["epochs_num"], i, len(train_loader_gaze), loss.item()))
+#                 # Save models at numbered epochs.
+#             if epoch % 1 == 0 and epoch < args["epochs_num"]:
+#                 print('Taking snapshot...')
+#                 torch.save(model.state_dict(),
+#                         args["output"] + '/fold' + str(fold) +
+#                         '_epoch_' + str(epoch+1) + '.pth')
+
 def train(testlabelpathombined, gazeMpiimage_dir, transformations, batch_size, device, args):
     print(device)
     # batch size lớn quá sẽ chuyển qua sử dụng cpu
-    for fold in range(args["people_num"]):
-        model = GazeModel().cuda(device)
-        model.train()
-        criterion = nn.MSELoss().cuda(device)
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
+    model = GazeModel().cuda(device)
+    model.train()
+    criterion = nn.MSELoss().cuda(device)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    
+    print('Loading data.')
+    dataset = Mpiigaze_nofold(testlabelpathombined, gazeMpiimage_dir, transformations, angle=180)
+    
+    train_size = int(0.8 * len(dataset))
+    test_size = len(dataset) - train_size
+    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+    
+    train_loader_gaze = DataLoader(
+        dataset=train_dataset,
+        batch_size=int(batch_size),
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True)
+    
+    test_loader_gaze = DataLoader(
+        dataset=test_dataset,
+        batch_size=int(batch_size),
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True)
+    
+    torch.backends.cudnn.benchmark = True
+    
+    for epoch in range(args["epochs_num"]):
+        print('\nEpoch:', epoch)
+        tbar = tqdm(train_loader_gaze, desc='Training')
+        for i, (landmarks, cont_labels) in enumerate(tbar):
+            landmarks = landmarks.cuda(device)
+            cont_labels = cont_labels.cuda(device)
+            # Forward pass
+            output = model(landmarks)
+            loss = criterion(output, cont_labels)
+            
+            # Backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            if i % 2000 == 0:
+                print('\nEpoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(epoch, args["epochs_num"], i, len(train_loader_gaze), loss.item()))
         
-        print('Loading data.')
-        dataset=Mpiigaze(testlabelpathombined,gazeMpiimage_dir, transformations, True, angle=180, fold=fold)
-        train_loader_gaze = DataLoader(
-            dataset=dataset,
-            batch_size=int(batch_size),
-            shuffle=True,
-            num_workers=4,
-            pin_memory=True)
-        torch.backends.cudnn.benchmark = True
+        # Save models at numbered epochs.
+        if epoch % 1 == 0 and epoch < args["epochs_num"]:
+            print('Taking snapshot...')
+            torch.save(model.state_dict(),
+                    args["output"] + '/epoch_' + str(epoch+1) + '.pth')
         
-        for epoch in range(args["epochs_num"]):
-            print('\nEpoch:', epoch)
-            tbar = tqdm(train_loader_gaze, desc='Training')
-            for i, (landmarks, cont_labels) in enumerate(tbar):
-            # for i, (landmarks, cont_labels) in enumerate(train_loader_gaze):
+        # Evaluate on test set
+        model.eval()
+        test_loss = 0
+        with torch.no_grad():
+            for landmarks, cont_labels in test_loader_gaze:
                 landmarks = landmarks.cuda(device)
                 cont_labels = cont_labels.cuda(device)
-                
-                # Forward pass
                 output = model(landmarks)
                 loss = criterion(output, cont_labels)
-                
-                # Backward pass
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                
-                if i % 2000 == 0:
-                    print('\nEpoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(epoch, args["epochs_num"], i, len(train_loader_gaze), loss.item()))
-                # Save models at numbered epochs.
-            if epoch % 1 == 0 and epoch < args["epochs_num"]:
-                print('Taking snapshot...')
-                torch.save(model.state_dict(),
-                        args["output"] + '/fold' + str(fold) +
-                        '_epoch_' + str(epoch+1) + '.pth')
+                test_loss += loss.item()
+        
+        test_loss /= len(test_loader_gaze)
+        print('Test Loss after epoch {}: {:.4f}'.format(epoch, test_loss))
+        model.train()
+
 
 def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

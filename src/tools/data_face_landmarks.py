@@ -102,26 +102,6 @@ def create_face_lmk_data():
         # write to error_file.txt when finish a fold
         with open(result_file, "a") as f:
             f.write(f"Finish fold {fold}\n")
-                    
-# Example usage:
-# image_path = r'C:\Users\dangk\B4\shisen\data\MPIIFaceGaze\preprocessed\Image\p00\face\1.jpg'
-# folder_path = r'C:\Users\dangk\B4\shisen\data\MPIIFaceGaze\preprocessed\Image\p00\face_lmk'
-# csv_path = os.path.join(folder_path, '1.csv')
-
-# # Create or reset folder
-# create_or_reset_folder(folder_path)
-
-# # Read image and process
-# image = cv2.imread(image_path)
-# padded_image = add_padding(image)
-
-# # Get normalized landmark vector
-# landmark_vector = get_landmark_vector(padded_image)
-
-# Save landmarks to CSV
-# save_landmarks_to_csv(landmark_vector, csv_path)
-
-# print(f"Normalized Landmark Vector saved to {csv_path}")
 
 if __name__ == '__main__':
     create_face_lmk_data()
