@@ -4,9 +4,10 @@
     "data_root_path":"/content/drive/Othercomputers/DELL/shisen/data/MPIIFaceGaze/MPIIFaceGaze",
     "sample_root_path":"C:\\Users\\dangk\\B4\\shisen\\data\\MPIIGaze\\Evaluation Subset\\sample list for eye image",
     "data_preprocess_path":"C:\\Users\\dangk\\B4\\shisen\\data\\MPIIFaceGaze\\preprocessed",
-    "gazeMpiilabel_dir": "/content/drive/Othercomputers/DELL/shisen/data/MPIIFaceGaze/preprocessed/Label",
-    "gazeMpiimage_dir": "/content/drive/Othercomputers/DELL/shisen/data/MPIIFaceGaze/preprocessed/Image",
+    "gazeMpiilabel_dir": "/content/colab/Label",
+    "gazeMpiimage_dir": "/content/colab/Image",
+    "output":"/content/drive/MyDrive/data/trained_model",
     "batch_size": 4,
-    "epochs_num": 1,
-    "people_num": 1
+    "epochs_num": 50,
+    "people_num": 15
 }

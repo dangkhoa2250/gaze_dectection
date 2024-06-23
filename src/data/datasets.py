@@ -66,17 +66,17 @@ class Mpiigaze(Dataset):
         pitch = label[0] * 180 / np.pi
         yaw = label[1] * 180 / np.pi
 
-        img = Image.open(os.path.join(self.root, face))
+        # img = Image.open(os.path.join(self.root, face))
 
         # fimg = cv2.imread(os.path.join(self.root, face))
         # fimg = cv2.resize(fimg, (448, 448)) / 255.0
         # fimg = fimg.transpose(2, 0, 1)
         # img = torch.from_numpy(fimg).type(torch.FloatTensor)
-
+        face = face.replace("\\", "/")
         landmark_path = os.path.join(self.root, face.replace(".jpg", ".csv")).replace("face", "face_lmk")
         landmark = self.read_landmarks_from_csv(landmark_path)
-        if self.transform:
-            img = self.transform(img)        
+        # if self.transform:
+        #     img = self.transform(img)        
 
         # Bin values
         bins = np.array(range(-42, 42, 3))
