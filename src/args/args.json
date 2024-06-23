@@ -8,6 +8,6 @@
     "gazeMpiimage_dir": "C:\\Users\\dangk\\B4\\shisen\\data\\MPIIFaceGaze\\preprocessed\\Image",
     "output":"C:\\Users\\dangk\\B4\\shisen\\gaze\\trained_models",
     "batch_size": 16,
-    "epochs_num": 3,
+    "epochs_num": 100,
     "people_num": 15
 }

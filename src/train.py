@@ -12,6 +12,9 @@ from tqdm import tqdm
 from models.gaze_model import GazeModel
 import torch.nn as nn
 import torch.optim as optim
+import matplotlib.pyplot as plt
+from IPython.display import clear_output
+import numpy as np
 
 def defaultdict_from_json(jsonDict):
     func = lambda: defaultdict(str)
@@ -63,9 +66,10 @@ def defaultdict_from_json(jsonDict):
 #                         args["output"] + '/fold' + str(fold) +
 #                         '_epoch_' + str(epoch+1) + '.pth')
 
+
+
 def train(testlabelpathombined, gazeMpiimage_dir, transformations, batch_size, device, args):
     print(device)
-    # batch size lớn quá sẽ chuyển qua sử dụng cpu
     model = GazeModel().cuda(device)
     model.train()
     criterion = nn.MSELoss().cuda(device)
@@ -93,13 +97,23 @@ def train(testlabelpathombined, gazeMpiimage_dir, transformations, batch_size, d
         pin_memory=True)
     
     torch.backends.cudnn.benchmark = True
+
+    train_losses = []
+    test_losses = []
+    epochs = []
     
+    plt.ion()  # Kích hoạt chế độ tương tác của matplotlib
+
     for epoch in range(args["epochs_num"]):
         print('\nEpoch:', epoch)
+        model.train()
+        running_loss = 0.0
         tbar = tqdm(train_loader_gaze, desc='Training')
         for i, (landmarks, cont_labels) in enumerate(tbar):
             landmarks = landmarks.cuda(device)
+            print(landmarks)
             cont_labels = cont_labels.cuda(device)
+            print(cont_labels)
             # Forward pass
             output = model(landmarks)
             loss = criterion(output, cont_labels)
@@ -109,14 +123,12 @@ def train(testlabelpathombined, gazeMpiimage_dir, transformations, batch_size, d
             loss.backward()
             optimizer.step()
             
+            running_loss += loss.item()
+            
             if i % 2000 == 0:
                 print('\nEpoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(epoch, args["epochs_num"], i, len(train_loader_gaze), loss.item()))
         
-        # Save models at numbered epochs.
-        if epoch % 1 == 0 and epoch < args["epochs_num"]:
-            print('Taking snapshot...')
-            torch.save(model.state_dict(),
-                    args["output"] + '/epoch_' + str(epoch+1) + '.pth')
+        train_losses.append(running_loss / len(train_loader_gaze))
         
         # Evaluate on test set
         model.eval()
@@ -130,8 +142,33 @@ def train(testlabelpathombined, gazeMpiimage_dir, transformations, batch_size, d
                 test_loss += loss.item()
         
         test_loss /= len(test_loader_gaze)
+        test_losses.append(test_loss)
+        
         print('Test Loss after epoch {}: {:.4f}'.format(epoch, test_loss))
+        epochs.append(epoch)
+        
+        # # Vẽ biểu đồ
+        # clear_output(wait=True)
+        # plt.figure(figsize=(10, 5))
+        # plt.plot(epochs, train_losses, label='Train Loss')
+        # plt.plot(epochs, test_losses, label='Test Loss')
+        # plt.xlabel('Epoch')
+        # plt.ylabel('Loss')
+        # plt.legend()
+        # plt.grid(True)
+        # plt.pause(0.001)  # Dừng một chút để cập nhật biểu đồ
+        
         model.train()
+        
+        # Save models at numbered epochs.
+        if epoch % 1 == 0 and epoch < args["epochs_num"]:
+            print('Taking snapshot...')
+            torch.save(model.state_dict(),
+                    args["output"] + '/epoch_' + str(epoch+1) + '.pth')
+
+    # plt.ioff()  # Tắt chế độ tương tác
+    # plt.savefig(args["output"] + '/training_loss_plot.png')  # Lưu biểu đồ cuối cùng
+    # plt.show()  # Hiển thị biểu đồ cuối cùng sau khi huấn luyện xong
 
 
 def main():
