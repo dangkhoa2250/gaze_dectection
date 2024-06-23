@@ -7,7 +7,7 @@
     "gazeMpiilabel_dir": "/content/colab/Label",
     "gazeMpiimage_dir": "/content/colab/Image",
     "output":"/content/drive/MyDrive/data/trained_model",
-    "batch_size": 4,
+    "batch_size": 64,
     "epochs_num": 50,
     "people_num": 15
 }
