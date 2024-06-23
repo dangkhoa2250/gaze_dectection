@@ -9,6 +9,9 @@ import torch.backends.cudnn as cudnn
 import torchvision
 import os
 from tqdm import tqdm
+from models.gaze_model import GazeModel
+import torch.nn as nn
+import torch.optim as optim
 
 def defaultdict_from_json(jsonDict):
     func = lambda: defaultdict(str)
@@ -17,11 +20,14 @@ def defaultdict_from_json(jsonDict):
     return dd
 
 def train(testlabelpathombined, gazeMpiimage_dir, transformations, batch_size, device, args):
+    print(device)
+    # batch size lớn quá sẽ chuyển qua sử dụng cpu
     for fold in range(args["people_num"]):
-        # model, pre_url = getArch_weights(args.arch, 28)
-        # load_filtered_state_dict(model, model_zoo.load_url(pre_url))
-        # model = nn.DataParallel(model)
-        # model.to(gpu)
+        model = GazeModel().cuda(device)
+        model.train()
+        criterion = nn.MSELoss().cuda(device)
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        
         print('Loading data.')
         dataset=Mpiigaze(testlabelpathombined,gazeMpiimage_dir, transformations, True, angle=180, fold=fold)
         train_loader_gaze = DataLoader(
@@ -33,22 +39,33 @@ def train(testlabelpathombined, gazeMpiimage_dir, transformations, batch_size, d
         torch.backends.cudnn.benchmark = True
         
         for epoch in range(args["epochs_num"]):
-            print('Epoch:', epoch)
-            for i, (images_gaze, labels_gaze, cont_labels_gaze,name) in tqdm(train_loader_gaze, desc="Loading Data"):
-                images_gaze = Variable(images_gaze).to(device)
+            print('\nEpoch:', epoch)
+            tbar = tqdm(train_loader_gaze, desc='Training')
+            for i, (landmarks, cont_labels) in enumerate(tbar):
+            # for i, (landmarks, cont_labels) in enumerate(train_loader_gaze):
+                landmarks = landmarks.cuda(device)
+                cont_labels = cont_labels.cuda(device)
+                
                 # Forward pass
-                # output = model(img)
-                # loss = criterion(output, label)
+                output = model(landmarks)
+                loss = criterion(output, cont_labels)
+                
                 # Backward pass
-                # optimizer.zero_grad()
-                # loss.backward()
-                # optimizer.step()
-                # if i % 100 == 0:
-                #     print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(epoch, args["epochs"], i, len(train_loader_gaze), loss.item())
-        pass
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                
+                if i % 2000 == 0:
+                    print('\nEpoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(epoch, args["epochs_num"], i, len(train_loader_gaze), loss.item()))
+                # Save models at numbered epochs.
+            if epoch % 1 == 0 and epoch < args["epochs_num"]:
+                print('Taking snapshot...')
+                torch.save(model.state_dict(),
+                        args["output"] + '/fold' + str(fold) +
+                        '_epoch_' + str(epoch+1) + '.pth')
 
 def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     file_args = "args_colab.json" if 'COLAB_GPU' in os.environ else 'args.json'
     
     # load the arguments from the json file
