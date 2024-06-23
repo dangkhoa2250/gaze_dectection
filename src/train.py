@@ -34,7 +34,7 @@ def train(testlabelpathombined, gazeMpiimage_dir, transformations, batch_size, d
             dataset=dataset,
             batch_size=int(batch_size),
             shuffle=True,
-            num_workers=2,
+            num_workers=4,
             pin_memory=True)
         torch.backends.cudnn.benchmark = True
         
